@@ -146,6 +146,37 @@ uv run auto_book.py
 
 ---
 
+## 📂 项目结构 (Project Structure)
+
+```text
+UJN_lib_scaper/
+├── 🚀 核心工具 (Core Tools)
+│   ├── crack_login_http.py       # [推荐] 极速 HTTP 爆破脚本 (128+ 线程, 纯协议实现)
+│   ├── auto_book.py              # [推荐] 自动化座位预约脚本 (Playwright)
+│   └── crack_login.py            # [旧版] 基于浏览器的爆破脚本 (单线程)
+│
+├── 🛠️ 逆向工程与辅助 (Reverse Engineering)
+│   ├── analyze_login.py          # 登录接口抓包分析工具
+│   ├── extract_runtime_secret.py # 运行时 HMAC 密钥提取工具 (Playwright 注入)
+│   ├── decrypt_numcode.py        # AES 解密测试工具 (验证密钥有效性)
+│   ├── verify_hmac.py            # HMAC 签名验证工具 (验证签名算法)
+│   ├── find_captcha_endpoint.py  # 验证码 API 探测工具
+│   └── reverse_engineer_js.py    # JS 静态分析扫描工具
+│
+├── 📦 数据与配置 (Data & Config)
+│   ├── crack.db                  # SQLite 数据库 (存储爆破进度与结果)
+│   ├── found_passwords.csv       # 成功破解的密码导出文件 (部分旧脚本生成)
+│   ├── pyproject.toml            # uv 项目依赖配置
+│   └── uv.lock                   # 依赖锁定文件
+│
+└── 🗑️ 其他/废弃 (Legacy/Misc)
+    ├── crack_manager.py          # [废弃] 多进程浏览器调度器
+    ├── app.js / vendor.js        # [临时] 抓取的网站前端源码
+    └── PROGRESS.md               # 开发进度记录
+```
+
+---
+
 ## 📊 数据库结构 (Database)
 
 程序会自动在当前目录创建 `crack.db` (SQLite)，包含两张表：

@@ -82,6 +82,8 @@ def main():
     progress = get_progress_map(conn, args.username)
     if progress:
         logger.info(f"[*] Resuming: Found progress for {len(progress)} days.")
+        for day_key, last_pass in sorted(progress.items()):
+            logger.info(f"    -> Day {day_key}: Last tried {last_pass}")
         logger.info("    (Skipping already tested passwords...)")
     else:
         logger.info("[*] No saved progress found. Starting from scratch.")

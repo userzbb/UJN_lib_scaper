@@ -2,6 +2,8 @@
 
 这是一个针对济南大学（UJN）图书馆座位预约系统的自动化工具集，主要功能包括自动登录、座位预约以及基于身份证后六位规则的弱密码测试工具。
 
+本项目使用 [uv](https://github.com/astral-sh/uv) 进行依赖管理和环境配置，确保环境一致性与极速安装体验。
+
 ## ⚠️ 免责声明 (Disclaimer)
 
 **本项目仅供学习交流和安全测试使用。**
@@ -24,29 +26,43 @@
 
 ## 环境依赖
 
-*   Python 3.8+
+*   [uv](https://docs.astral.sh/uv/) (极速 Python 包管理器)
 *   Playwright (浏览器自动化)
-*   ddddocr (验证码识别)
 
-## 安装步骤
+## 安装与配置
 
-1.  **克隆项目**
+本项目使用 `uv` 管理依赖，请确保本地已安装 `uv`。
+
+1.  **安装 uv** (如果尚未安装)
+    ```bash
+    # MacOS / Linux
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+
+    # Windows
+    powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+    ```
+
+2.  **克隆项目**
     ```bash
     git clone https://github.com/your-repo/UJN_lib_scaper.git
     cd UJN_lib_scaper
     ```
 
-2.  **安装 Python 依赖**
+3.  **同步依赖环境**
+    `uv` 会根据 `uv.lock` 自动创建虚拟环境并安装所有依赖。
     ```bash
-    pip install playwright ddddocr
+    uv sync
     ```
 
-3.  **安装 Playwright 浏览器**
+4.  **安装 Playwright 浏览器**
+    由于 Playwright 需要下载浏览器二进制文件，需在虚拟环境中执行安装命令：
     ```bash
-    playwright install
+    uv run playwright install
     ```
 
 ## 使用说明
+
+所有脚本均需通过 `uv run` 命令执行，以确保使用项目隔离的虚拟环境。
 
 ### 1. 弱密码测试 (`crack_login.py`)
 
@@ -55,7 +71,7 @@
 **基本用法：**
 ```bash
 # 替换为目标学号
-python crack_login.py 202331223125
+uv run crack_login.py 202331223125
 ```
 
 **运行逻辑：**
@@ -78,18 +94,12 @@ PASSWORD = "xxxxxx"      # 你的密码
 
 **运行：**
 ```bash
-python auto_book.py
+uv run auto_book.py
 ```
-
-### 3. 辅助脚本
-
-*   `extract_last6_and_gender.py`: 输入完整身份证号，提取后6位并判断性别。
-*   `generate_last6_from_prefix.py`: 根据身份证前缀生成合法的后6位。
-*   `iterate_last6_strings.py`: 生成 000000-999999 所有字符串并按性别分文件保存。
-*   `male_last6_bruteforce.py`: 生成所有符合男生规则的后6位字符串。
 
 ## 目录结构
 
-*   `crack.db`: SQLite 数据库，存储破解进度和结果。
-*   `found_passwords.csv`: 存储破解成功的账号密码文本文件。
-*   `temp_captcha.png`: 运行时下载的临时验证码图片。
+*   `crack.db`: SQLite 数据库，存储破解进度和结果（已忽略，不提交）。
+*   `found_passwords.csv`: 存储破解成功的账号密码文本文件（已忽略，不提交）。
+*   `pyproject.toml` / `uv.lock`: uv 项目依赖定义文件。
+*   `.venv/`: uv 自动创建的虚拟环境目录。

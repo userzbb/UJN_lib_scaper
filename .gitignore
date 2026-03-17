@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments (uv)
+.venv/
+venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Project Runtime & Data
+crack.db
+found_passwords.csv
+success_password.txt
+male_last6.txt
+male.txt
+female.txt
+
+# Temporary Artifacts (Screenshots & Captchas)
+*.png
+*.jpg
+*.log

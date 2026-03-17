@@ -20,6 +20,8 @@
   - 自动处理 AES 加密与 HMAC-SHA256 签名。
   - 错误自动重试与账号锁定保护。
   - 支持 **断点续传** (基于 SQLite 数据库)。
+- **架构解耦**: 采用模块化设计 (`src/`), 分离核心逻辑与工具函数，便于维护。
+- **内存优化**: 使用基于文件的任务队列，支持大规模字典生成与调度。
 
 ### 2. 自动化预约 (Auto Booker)
 - 基于 `Playwright` 的全自动座位预约。
@@ -155,13 +157,13 @@ uv run crack_login_http.py 202331223002 -g F -d 15
 
 ---
 
-### 2. 浏览器模拟爆破 (crack_login.py) [可视/调试]
+### 2. 浏览器模拟爆破 (legacy/crack_login.py) [可视/调试]
 
 旧版脚本，使用 Playwright 启动真实浏览器。适合调试或当 HTTP 脚本失效时作为备用。
 
 **基本语法**:
 ```bash
-uv run crack_login.py [学号] [选项]
+uv run legacy/crack_login.py [学号] [选项]
 ```
 
 **参数详解**:
@@ -175,7 +177,7 @@ uv run crack_login.py [学号] [选项]
 **使用示例**:
 ```bash
 # 可视化运行 (能看到浏览器自动输入)
-uv run crack_login.py 202331223001 -g M --show
+uv run legacy/crack_login.py 202331223001 -g M --show
 ```
 
 ---
@@ -206,42 +208,45 @@ uv run auto_book.py
 
 ### 4. 辅助分析工具
 
-- **`analyze_login.py`**:
+- **`tools/analyze_login.py`**:
   - 用途: 启动浏览器并监听网络请求，分析登录接口的 Header 和加密参数。
-  - 命令: `uv run analyze_login.py`
-- **`extract_runtime_secret.py`**:
+  - 命令: `uv run tools/analyze_login.py`
+- **`tools/extract_runtime_secret.py`**:
   - 用途: 通过 Playwright 注入 JS，从内存中提取 HMAC 密钥。
-  - 命令: `uv run extract_runtime_secret.py`
+  - 命令: `uv run tools/extract_runtime_secret.py`
 
 ---
 
 ## 📂 项目结构 (Project Structure)
 
+项目已重构为模块化架构，主要文件结构如下：
+
 ```text
 UJN_lib_scaper/
 ├── 🚀 核心工具 (Core Tools)
-│   ├── crack_login_http.py       # [推荐] 极速 HTTP 爆破脚本 (128+ 线程, 纯协议实现)
+│   ├── crack_login_http.py       # [入口] 极速 HTTP 爆破启动脚本 (Wrapper)
 │   ├── auto_book.py              # [推荐] 自动化座位预约脚本 (Playwright)
-│   └── crack_login.py            # [旧版] 基于浏览器的爆破脚本 (单线程)
+│   └── src/                      # 核心源码目录
+│       ├── main.py               # 爆破程序主逻辑
+│       ├── config.py             # 全局配置文件
+│       ├── core/                 # 核心模块 (生成器, 工作线程, 数据库)
+│       └── utils/                # 通用工具 (加密, 验证码)
 │
 ├── 🛠️ 逆向工程与辅助 (Reverse Engineering)
-│   ├── analyze_login.py          # 登录接口抓包分析工具
-│   ├── extract_runtime_secret.py # 运行时 HMAC 密钥提取工具 (Playwright 注入)
-│   ├── decrypt_numcode.py        # AES 解密测试工具 (验证密钥有效性)
-│   ├── verify_hmac.py            # HMAC 签名验证工具 (验证签名算法)
-│   ├── find_captcha_endpoint.py  # 验证码 API 探测工具
-│   └── reverse_engineer_js.py    # JS 静态分析扫描工具
+│   └── tools/                    # 分析工具集
+│       ├── analyze_login.py          # 登录接口抓包分析
+│       ├── extract_runtime_secret.py # HMAC 密钥提取
+│       ├── decrypt_numcode.py        # AES 解密测试
+│       └── ...
 │
 ├── 📦 数据与配置 (Data & Config)
 │   ├── crack.db                  # SQLite 数据库 (存储爆破进度与结果)
-│   ├── found_passwords.csv       # 成功破解的密码导出文件 (部分旧脚本生成)
+│   ├── found_passwords.csv       # 成功破解的密码导出文件
 │   ├── pyproject.toml            # uv 项目依赖配置
-│   └── uv.lock                   # 依赖锁定文件
+│   └── data/                     # 静态资源 (app.js 等)
 │
-└── 🗑️ 其他/废弃 (Legacy/Misc)
-    ├── crack_manager.py          # [废弃] 多进程浏览器调度器
-    ├── app.js / vendor.js        # [临时] 抓取的网站前端源码
-    └── PROGRESS.md               # 开发进度记录
+└── 🗑️ 历史归档 (Legacy)
+    └── legacy/                   # 旧版脚本 (crack_login.py 等)
 ```
 
 ---

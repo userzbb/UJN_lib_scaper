@@ -8,6 +8,8 @@
 
 本项目经历了从 **Web 自动化 (Selenium/Playwright)** 到 **逆向工程 (Reverse Engineering)** 再到 **纯协议层高并发爆破 (HTTP Protocol)** 的完整演进过程。
 
+📖 **深度阅读**: [技术演进与逆向工程实录 (Development Journey)](DEV_JOURNEY.md) —— 了解本项目如何一步步突破反爬限制。
+
 > **⚠️ 最新更新 (v2.0 Refactored)**:
 > 项目已完成重构，引入了 **智能断点续传**、**自适应流控** 和 **模块化架构**，大幅提升了稳定性和易用性。
 
@@ -119,6 +121,7 @@ uv run crack_login_http.py [学号] [选项]
 | `--day` | `-d` | 指定只跑某一天 (01-31) | 全量 | `-d 08` |
 | `--max-seq` | `-s` | **[新]** 每日最大出生序列号限制 | `500` | `-s 200` |
 | `--threads` | `-t` | 线程数，建议 16-64 | `64` | `-t 32` |
+| `--performance`| `-p` | **[新]** 启用长连接模式 (速度更快) | 关 | `-p` |
 
 **使用示例**:
 
@@ -131,6 +134,9 @@ uv run crack_login_http.py 202331223001 -g M -d 15 -s 300
 
 # 场景3: 稳定模式 (适合网络较差环境，降低线程数)
 uv run crack_login_http.py 202331223001 -t 16
+
+# 场景4: 🚀 高性能模式 (启用 Session 复用，追求极致速度)
+uv run crack_login_http.py 202331223001 -g M -d 08 -p
 ```
 
 ### 💡 关于断点续传的说明
@@ -148,6 +154,14 @@ Generating full candidate list: passwords_xxxx.txt ...
 2. 然后读取数据库中的进度记录。
 3. 在分发任务时，**自动跳过**所有已经测试过的密码。
 4. 进度条的 `Processed` 计数只包含**本次运行**实际测试的数量。
+
+### ⚡ 关于高性能模式 (Performance Mode)
+
+使用 `-p` 或 `--performance` 参数启用。
+
+- **原理**: 线程会复用底层的 TCP/SSL 连接 (Keep-Alive)，避免了每次请求都进行昂贵的 SSL 握手。
+- **优势**: 理论速度可提升 50%-100% (消除握手延迟)。
+- **风险**: 可能会更容易触发服务器的频率限制 (Rate Limit)。如果遇到大量连接错误，请关闭此模式。
 
 ---
 

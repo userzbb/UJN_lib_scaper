@@ -55,6 +55,13 @@ def main():
         "--threads", "-t", type=int, default=64, help="Number of threads (default: 64)"
     )
 
+    parser.add_argument(
+        "--performance",
+        "-p",
+        action="store_true",
+        help="Enable persistent HTTP sessions (faster but riskier)",
+    )
+
     args = parser.parse_args()
 
     # Init DB
@@ -108,7 +115,8 @@ def main():
     logger.info(
         f"[*] Target: {args.username} | Gender: {args.gender} | Dict Size: {total_tasks}"
     )
-    logger.info(f"[*] Threads: {args.threads} | Mode: Pure HTTP")
+    mode_str = "Pure HTTP (Persistent)" if args.performance else "Pure HTTP (Standard)"
+    logger.info(f"[*] Threads: {args.threads} | Mode: {mode_str}")
 
     start_time = time.time()
 
@@ -126,7 +134,13 @@ def main():
                 if stop_event.is_set():
                     break
                 future = executor.submit(
-                    worker, stop_event, progress_queue, args.username, password, day_key
+                    worker,
+                    stop_event,
+                    progress_queue,
+                    args.username,
+                    password,
+                    day_key,
+                    persistent_session=args.performance,
                 )
                 futures.append(future)
         except KeyboardInterrupt:

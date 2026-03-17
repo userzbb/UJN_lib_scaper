@@ -149,11 +149,17 @@ def run_crack():
         "-d",
         help="指定只跑某一天的密码 (例如 '08' 或 '25'), 默认跑 01-31",
     )
+    parser.add_argument(
+        "--show",
+        action="store_true",
+        help="显示浏览器窗口 (默认无头模式)",
+    )
 
     args = parser.parse_args()
     target_username = args.username
     target_gender = args.gender
     target_day = args.day
+    is_headless = not args.show
 
     if target_day and (not target_day.isdigit() or len(target_day) != 2):
         print("错误: --day 参数必须是2位数字, 例如 '05'")
@@ -182,7 +188,7 @@ def run_crack():
     ocr = ddddocr.DdddOcr(show_ad=False, old=True)
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        browser = p.chromium.launch(headless=is_headless)
         context = browser.new_context()
         page = context.new_page()
 

@@ -54,9 +54,6 @@
 #### 2. AES 加密破解
 - **分析**: 在 `app.js` (Webpack bundle) 中定位到加密函数。
 - **发现**: 使用 AES-128-CBC 算法。
-- **密钥**: 
-  - Key: `"server_date_time"`
-  - IV: `"client_date_time"`
 - **验证**: 编写 `decrypt_numcode.py` 成功解密了抓包到的密码密文。
 
 #### 3. HMAC 签名破解 (核心难点)
@@ -65,7 +62,15 @@
 - **密钥难题**: 密钥变量名为 `$NUMCODE`，但在静态代码中找不到真实值。
 - **动态提取**: 编写 `extract_runtime_secret.py`，使用 Playwright 注入 JS 代码，在页面加载完成后直接从 `Vue.prototype` 读取运行时变量。
   - **提取结果**: `UmrX+lxhFE5neclEsBPing==` (加密的 Base64)。
-- **最终解密**: 使用之前的 AES Key 对其解密，得到真实 HMAC Secret: **`ujnLIB2022tsg`**。
+- **最终解密**: 使用之前的 AES Key 对其解密，得到真实 HMAC Secret。
+
+### 🔓 核心密钥一览 (Discovered Secrets)
+
+| 密钥类型 | 变量名/用途 | 值 (Value) | 备注 |
+| :--- | :--- | :--- | :--- |
+| **HMAC Secret** | `$NUMCODE` | **`ujnLIB2022tsg`** | 用于请求签名 (核心) |
+| **AES Key** | `server_date_time` | `server_date_time` | 密码加密 Key |
+| **AES IV** | `client_date_time` | `client_date_time` | 密码加密 IV |
 
 ### 第四阶段：纯 HTTP 爆破 (Pure HTTP)
 基于以上成果，开发了 **`crack_login_http.py`**，实现了无需浏览器的毫秒级请求，彻底解决了性能瓶颈。

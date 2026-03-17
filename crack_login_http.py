@@ -77,6 +77,14 @@ def get_progress_map(conn, username):
 
 
 def save_success(username, password):
+    # Save to CSV
+    try:
+        with open("found_passwords.csv", "a", encoding="utf-8") as f:
+            f.write(f"{username},{password}\n")
+    except Exception as e:
+        logger.error(f"CSV Error saving success: {e}")
+
+    # Save to DB
     try:
         with sqlite3.connect(DB_FILE, timeout=10.0) as conn:
             cursor = conn.cursor()
@@ -393,6 +401,18 @@ def main():
 
     # Init DB
     conn = init_db()
+
+    # Check if password already exists
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT password FROM found_passwords WHERE username = ?", (args.username,)
+    )
+    found = cursor.fetchone()
+    if found:
+        logger.info(f"✅ Password already found in database: {found[0]}")
+        conn.close()
+        return
+
     progress = get_progress_map(conn, args.username)
     conn.close()
 

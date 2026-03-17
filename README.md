@@ -81,68 +81,129 @@
 
 本项目推荐使用 [uv](https://github.com/astral-sh/uv) 进行依赖管理，它比 pip 更快且兼容性更好。
 
-### 1. 环境准备
-确保已安装 Python 3.12+。
+### 1. 安装 uv
+推荐使用官方脚本安装（无需依赖 Python）：
 
+**macOS / Linux:**
 ```bash
-# 安装 uv (如果未安装)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+**Windows:**
+```powershell
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+*或者如果已安装 Python，也可以通过 pip 安装：*
+```bash
 pip install uv
 ```
 
-### 2. 安装依赖
-```bash
-# 使用 uv 同步依赖
-uv sync
-```
+### 2. 初始化项目环境
+`uv` 会自动创建虚拟环境并安装所有依赖，无需手动激活环境。
 
-或者使用传统的 pip:
 ```bash
-pip install -r requirements.txt
-# 核心依赖: playwright, ddddocr, pycryptodome, requests
+# 1. 克隆项目
+git clone https://github.com/zizimiku/UJN_lib_scaper.git
+cd UJN_lib_scaper
+
+# 2. 同步依赖 (自动创建 .venv)
+uv sync
+
+# 3. 安装 Playwright 浏览器内核 (首次运行必须)
+uv run playwright install chromium
 ```
 
 ---
 
 ## 💻 使用指南 (Usage)
 
-### 1. 极速爆破 (推荐)
+### 1. 极速 HTTP 爆破 (crack_login_http.py) [推荐]
 
-使用 `crack_login_http.py` 进行身份证后六位爆破。
+这是本项目的核心工具，通过纯 HTTP 协议进行高并发密码测试。
 
-**命令格式**:
+**基本语法**:
 ```bash
-uv run crack_login_http.py <学号> -g <M/F> -t <线程数>
+uv run crack_login_http.py [学号] [选项]
 ```
 
-**参数说明**:
-- `<学号>`: 目标用户的学号。
-- `-g`: 性别 (Gender)。`M`=男 (最后一位奇数), `F`=女 (最后一位偶数)。**必选**，这能减少一半的尝试量。
-- `-t`: 线程数。推荐 `64` 或 `128`。
-- `-d`: (可选) 指定只跑某一天的日期 (如 `08`)，用于分布式或测试。
+**参数详解**:
+| 参数 | 简写 | 说明 | 默认值 | 示例 |
+| :--- | :--- | :--- | :--- | :--- |
+| `username` | - | **(必选)** 目标学号 | - | `2023001` |
+| `--gender` | `-g` | **(必选)** 性别，`M`=男, `F`=女 | `M` | `-g F` |
+| `--threads` | `-t` | 线程数，建议 64-128 | `64` | `-t 128` |
+| `--day` | `-d` | 指定只跑某一天 (01-31) | 全量 | `-d 08` |
 
-**示例**:
+**使用示例**:
+
 ```bash
-# 爆破学号 20230001，男生，使用 64 线程
-uv run crack_login_http.py 20230001 -g M -t 64
+# 场景1: 爆破男生账号，全速模式 (128线程)
+uv run crack_login_http.py 202331223001 -g M -t 128
 
-# 爆破学号 20230002，女生，只跑 15 号的数据
-uv run crack_login_http.py 20230002 -g F -d 15
+# 场景2: 爆破女生账号，仅测试 '15' 号出生的密码
+uv run crack_login_http.py 202331223002 -g F -d 15
 ```
 
-### 2. 自动化预约 (Auto Booking)
+---
 
-使用 `auto_book.py` 进行座位预约。
+### 2. 浏览器模拟爆破 (crack_login.py) [可视/调试]
 
+旧版脚本，使用 Playwright 启动真实浏览器。适合调试或当 HTTP 脚本失效时作为备用。
+
+**基本语法**:
+```bash
+uv run crack_login.py [学号] [选项]
+```
+
+**参数详解**:
+| 参数 | 简写 | 说明 |
+| :--- | :--- | :--- |
+| `username` | - | **(必选)** 目标学号 |
+| `--gender` | `-g` | 性别 (M/F)，默认 M |
+| `--day` | `-d` | 指定日期 (01-31) |
+| `--show` | - | 显示浏览器窗口 (默认无头模式) |
+
+**使用示例**:
+```bash
+# 可视化运行 (能看到浏览器自动输入)
+uv run crack_login.py 202331223001 -g M --show
+```
+
+---
+
+### 3. 自动化预约 (auto_book.py)
+
+登录成功后，使用此脚本进行自动选座。
+
+**配置说明**:
+此脚本目前暂不支持命令行参数，**需要手动修改脚本顶部的配置**：
+
+1. 打开 `auto_book.py`
+2. 修改 `USERNAME` 和 `PASSWORD` 变量：
+   ```python
+   # ================= 配置区域 =================
+   USERNAME = "202331223065"  # 替换为你的学号
+   PASSWORD = "080518"        # 替换为你的密码
+   # ===========================================
+   ```
+3. (可选) 修改底部的阅览室名称 (`target_room`) 和座位号 (`seat_num`)。
+
+**运行命令**:
 ```bash
 uv run auto_book.py
 ```
-*注意: 需先在代码中配置好账号密码和目标座位。*
 
-### 3. 辅助工具
+---
 
-- **`crack_manager.py`**: 旧版的多进程浏览器调度器 (已废弃，仅供参考)。
-- **`analyze_login.py`**: 用于抓包分析登录接口的工具。
-- **`extract_runtime_secret.py`**: 用于提取 HMAC 密钥的工具。
+### 4. 辅助分析工具
+
+- **`analyze_login.py`**:
+  - 用途: 启动浏览器并监听网络请求，分析登录接口的 Header 和加密参数。
+  - 命令: `uv run analyze_login.py`
+- **`extract_runtime_secret.py`**:
+  - 用途: 通过 Playwright 注入 JS，从内存中提取 HMAC 密钥。
+  - 命令: `uv run extract_runtime_secret.py`
 
 ---
 

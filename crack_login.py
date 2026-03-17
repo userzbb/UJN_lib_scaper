@@ -72,6 +72,13 @@ def update_progress(conn, username, day_prefix, password):
 
 def save_success(conn, username, password):
     """保存破解成功的密码"""
+    # Save to CSV
+    try:
+        with open("found_passwords.csv", "a", encoding="utf-8") as f:
+            f.write(f"{username},{password}\n")
+    except Exception as e:
+        print(f"CSV Error saving success: {e}")
+
     cursor = conn.cursor()
     cursor.execute(
         """

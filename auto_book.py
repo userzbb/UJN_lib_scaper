@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
-import time
 import re
+import time
 
 import ddddocr
 from playwright.sync_api import sync_playwright
@@ -9,7 +9,7 @@ from playwright.sync_api import sync_playwright
 
 def run():
     # ================= 配置区域 =================
-    USERNAME = "202331223125"  # 你的学号
+    USERNAME = "202331223065"  # 你的学号
     PASSWORD = "080518"  # 你的密码
     # ===========================================
 

@@ -1,1 +1,95 @@
-# UJN_lib_scaper
+# UJN Library Scraper & Automation Tools
+
+这是一个针对济南大学（UJN）图书馆座位预约系统的自动化工具集，主要功能包括自动登录、座位预约以及基于身份证后六位规则的弱密码测试工具。
+
+## ⚠️ 免责声明 (Disclaimer)
+
+**本项目仅供学习交流和安全测试使用。**
+请勿将本项目用于任何非法用途，包括但不限于未经授权的渗透测试、暴力破解他人账号、恶意抢占公共资源等。使用本工具产生的任何后果由使用者自行承担。
+
+## 功能特性
+
+1.  **自动座位预约 (`auto_book.py`)**
+    *   使用 Playwright 模拟浏览器操作。
+    *   集成 `ddddocr` 自动识别验证码。
+    *   支持自定义选座（阅览室、座位号）。
+    *   具备失败重试机制。
+
+2.  **弱密码测试/找回 (`crack_login.py`)**
+    *   针对默认密码规则（身份证后六位）进行字典枚举。
+    *   **智能策略**：支持按性别（男/女）和日期生成有效身份证后六位字典。
+    *   **断点续传**：使用 SQLite 数据库记录破解进度，中断后可自动恢复，避免重复尝试。
+    *   **验证码容错**：自动处理验证码识别错误，仅在密码错误时切换下一个尝试。
+    *   **多用户支持**：支持通过命令行参数指定不同学号，进度独立保存。
+
+## 环境依赖
+
+*   Python 3.8+
+*   Playwright (浏览器自动化)
+*   ddddocr (验证码识别)
+
+## 安装步骤
+
+1.  **克隆项目**
+    ```bash
+    git clone https://github.com/your-repo/UJN_lib_scaper.git
+    cd UJN_lib_scaper
+    ```
+
+2.  **安装 Python 依赖**
+    ```bash
+    pip install playwright ddddocr
+    ```
+
+3.  **安装 Playwright 浏览器**
+    ```bash
+    playwright install
+    ```
+
+## 使用说明
+
+### 1. 弱密码测试 (`crack_login.py`)
+
+该脚本用于测试账号是否使用了基于身份证后六位的弱密码（当前默认逻辑为**男生**身份证规则：`日(01-31) + 顺序码(奇数) + 校验位(0-9)`）。
+
+**基本用法：**
+```bash
+# 替换为目标学号
+python crack_login.py 202331223125
+```
+
+**运行逻辑：**
+*   脚本会自动打开浏览器尝试登录。
+*   **进度保存**：每次尝试失败（密码错误）后，会将进度保存到 `crack.db` 数据库。
+*   **中断恢复**：如果你按 `Ctrl+C` 停止脚本，下次运行同一学号时，会自动从上次断点继续。
+*   **结果保存**：破解成功的密码会自动写入 `found_passwords.csv` 和数据库。
+
+### 2. 自动预约 (`auto_book.py`)
+
+用于登录成功后自动抢座。
+
+**配置：**
+打开 `auto_book.py`，修改顶部的配置区域：
+```python
+USERNAME = "2023xxxxxx"  # 你的学号
+PASSWORD = "xxxxxx"      # 你的密码
+```
+以及底部的阅览室和座位号逻辑（需根据实际网页结构调整 `target_room` 和 `seat_num`）。
+
+**运行：**
+```bash
+python auto_book.py
+```
+
+### 3. 辅助脚本
+
+*   `extract_last6_and_gender.py`: 输入完整身份证号，提取后6位并判断性别。
+*   `generate_last6_from_prefix.py`: 根据身份证前缀生成合法的后6位。
+*   `iterate_last6_strings.py`: 生成 000000-999999 所有字符串并按性别分文件保存。
+*   `male_last6_bruteforce.py`: 生成所有符合男生规则的后6位字符串。
+
+## 目录结构
+
+*   `crack.db`: SQLite 数据库，存储破解进度和结果。
+*   `found_passwords.csv`: 存储破解成功的账号密码文本文件。
+*   `temp_captcha.png`: 运行时下载的临时验证码图片。

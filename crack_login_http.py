@@ -126,6 +126,7 @@ def save_success(username, password):
 
 def db_updater_loop():
     """Background thread to batch update progress"""
+    logger.info("DB Updater thread started.")
     # Use a separate connection for this thread
     conn = sqlite3.connect(DB_FILE, timeout=30.0)
     cursor = conn.cursor()
@@ -136,8 +137,14 @@ def db_updater_loop():
     while True:
         try:
             try:
-                # Wait for items, but timeout quickly to check stop_event and commit interval
+                # Wait for items
                 item = progress_queue.get(timeout=0.5)
+
+                # Sentinel check
+                if item is None:
+                    logger.info("DB Updater received sentinel. Flushing and exiting.")
+                    break
+
                 username, day, password = item
 
                 # High-water mark logic: only update if password is lexically larger
@@ -147,8 +154,9 @@ def db_updater_loop():
                     pending_updates[key] = password
 
             except queue.Empty:
-                if stop_event.is_set():
-                    break
+                # If stop_event is set AND we haven't received sentinel yet,
+                # we just wait. Main is responsible for sending sentinel.
+                pass
 
             # Commit if batch is large enough or time has passed
             current_time = time.time()
@@ -197,10 +205,13 @@ def db_updater_loop():
                 data,
             )
             conn.commit()
-            logger.info("Final progress save completed.")
-        except Exception:
-            pass
+            logger.info(
+                f"Final progress save completed. ({len(pending_updates)} items)"
+            )
+        except Exception as e:
+            logger.error(f"Final DB Save Error: {e}")
     conn.close()
+    logger.info("DB Updater thread exited.")
 
 
 # ================= Crypto & Helper Functions =================
@@ -438,6 +449,10 @@ def worker(username, password, day_prefix):
             time.sleep(0.5)
             continue
 
+    logger.warning(
+        f"Worker gave up on {password} after {max_retries} retries (Network/Captcha issues)."
+    )
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -552,6 +567,10 @@ def main():
             executor.shutdown(wait=False, cancel_futures=True)
         else:
             executor.shutdown(wait=True)
+
+        # Send sentinel to DB thread to signal completion
+        logger.info("Sending sentinel to DB thread...")
+        progress_queue.put(None)
 
     # Ensure DB thread finishes
     stop_event.set()

@@ -338,7 +338,7 @@ def check_login(sess, username, password):
 
 
 # ================= Password Generator =================
-def generate_passwords(gender="M", specific_day=None, progress_map=None):
+def generate_passwords(gender="M", specific_day=None, progress_map=None, max_seq=500):
     if progress_map is None:
         progress_map = {}
 
@@ -377,7 +377,7 @@ def generate_passwords(gender="M", specific_day=None, progress_map=None):
                 skipping = True
                 logger.info(f"[*] Day {day_key}: Resuming from {resume_pw}")
 
-            for seq in range(1000):
+            for seq in range(max_seq):
                 if seq % 2 != target_remainder:
                     continue
 
@@ -454,6 +454,14 @@ def main():
     parser.add_argument("--day", "-d", help="Specific day (01-31)")
 
     parser.add_argument(
+        "--max-seq",
+        "-s",
+        type=int,
+        default=500,
+        help="Maximum sequence number for birth order (default: 500)",
+    )
+
+    parser.add_argument(
         "--threads", "-t", type=int, default=64, help="Number of threads (default: 64)"
     )
 
@@ -487,7 +495,7 @@ def main():
 
     # Generate password list
     logger.info("Generating password list...")
-    gen = generate_passwords(args.gender, args.day, progress)
+    gen = generate_passwords(args.gender, args.day, progress, args.max_seq)
     tasks = list(gen)
     total_tasks = len(tasks)
 

@@ -45,13 +45,18 @@ def generate_dictionary_file(filepath, gender="ALL", specific_day=None, max_seq=
     return count
 
 
-def load_tasks_from_file(filepath, progress_map=None):
+def load_tasks_from_file(filepath, progress_map=None, stats=None):
     """
     Yields (password, day_key) from the dictionary file,
     skipping items that have already been processed according to progress_map.
+    Updates `stats['skipped']` if provided.
     """
     if progress_map is None:
         progress_map = {}
+    if stats is None:
+        stats = {}
+    if "skipped" not in stats:
+        stats["skipped"] = 0
 
     # State tracking for skipping: { day_key: {'skipping': bool, 'target': str} }
     skipping_state = {}
@@ -100,6 +105,7 @@ def load_tasks_from_file(filepath, progress_map=None):
                 state = skipping_state[day_key]
 
                 if state["skipping"]:
+                    stats["skipped"] += 1
                     if password == state["target"]:
                         state["skipping"] = False
                     continue

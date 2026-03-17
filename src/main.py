@@ -148,6 +148,9 @@ def main():
             stop_event.set()
 
         # Monitor Loop
+        tasks_scheduled = len(futures)
+        skipped_pre_run = total_tasks - tasks_scheduled
+
         try:
             for _ in concurrent.futures.as_completed(futures):
                 if stop_event.is_set():
@@ -157,8 +160,10 @@ def main():
                 if completed % 100 == 0:
                     elapsed = time.time() - start_time
                     speed = completed / elapsed if elapsed > 0 else 0
+                    # Show global progress (skipped + current)
+                    global_progress = skipped_pre_run + completed
                     sys.stdout.write(
-                        f"\r[*] Progress: {completed}/{total_tasks} | Speed: {speed:.1f} req/s"
+                        f"\r[*] Progress: {global_progress}/{total_tasks} | Speed: {speed:.1f} req/s"
                     )
                     sys.stdout.flush()
         except KeyboardInterrupt:
@@ -192,8 +197,9 @@ def main():
     duration = time.time() - start_time
     logger.info(f"Finished in {duration:.2f} seconds.")
     if total_tasks > 0:
+        skipped_by_resume = total_tasks - len(futures)
         logger.info(
-            f"Tasks processed: {completed} / Total Dict: {total_tasks} (Skipped: {total_tasks - completed})"
+            f"Tasks processed: {completed} / Total Dict: {total_tasks} (Skipped by Resume: {skipped_by_resume})"
         )
 
 

@@ -8,7 +8,9 @@
 
 本项目经历了从 **Web 自动化 (Selenium/Playwright)** 到 **逆向工程 (Reverse Engineering)** 再到 **纯协议层高并发爆破 (HTTP Protocol)** 的完整演进过程。
 
-📖 **深度阅读**: [技术演进与逆向工程实录 (Development Journey)](DEV_JOURNEY.md) —— 了解本项目如何一步步突破反爬限制。
+📖 **深度阅读**:
+- [技术演进与逆向工程实录 (Development Journey)](docs/DEV_JOURNEY.md) —— 了解本项目如何一步步突破反爬限制。
+- [爆破逻辑与进度管理机制 (Cracking Logic)](docs/CRACKING_LOGIC.md) —— 了解断点续传与任务调度的实现细节。
 
 > **⚠️ 最新更新 (v2.0 Refactored)**:
 > 项目已完成重构，引入了 **智能断点续传**、**自适应流控** 和 **模块化架构**，大幅提升了稳定性和易用性。
@@ -59,6 +61,11 @@ UJN_lib_scaper/
 │   └── utils/
 │       ├── crypto.py             # 加密算法 (AES, HMAC)
 │       └── captcha.py            # 验证码识别 (ddddocr)
+│
+├── 📄 文档 (Docs)
+│   └── docs/
+│       ├── DEV_JOURNEY.md        # 技术演进与逆向工程记录
+│       └── CRACKING_LOGIC.md     # 爆破逻辑与进度管理说明
 │
 └── 📊 数据文件
     ├── crack.db                  # 进度数据库

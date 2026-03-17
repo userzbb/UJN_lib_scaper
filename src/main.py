@@ -75,6 +75,7 @@ def main():
     progress = get_progress_map(conn, args.username)
     if progress:
         logger.info(f"[*] Resuming: Found progress for {len(progress)} days.")
+        logger.info("    (Skipping already tested passwords...)")
     else:
         logger.info("[*] No saved progress found. Starting from scratch.")
     conn.close()
@@ -88,7 +89,7 @@ def main():
     # Generate password dictionary
     # Use username-specific dict file to avoid conflicts
     dict_file = f"passwords_{args.username}.txt"
-    logger.info(f"Generating temporary dictionary: {dict_file} ...")
+    logger.info(f"Generating full candidate list: {dict_file} ...")
 
     total_tasks = generate_dictionary_file(
         dict_file,
@@ -105,7 +106,7 @@ def main():
         return
 
     logger.info(
-        f"[*] Target: {args.username} | Gender: {args.gender} | Tasks: {total_tasks}"
+        f"[*] Target: {args.username} | Gender: {args.gender} | Dict Size: {total_tasks}"
     )
     logger.info(f"[*] Threads: {args.threads} | Mode: Pure HTTP")
 
@@ -114,6 +115,7 @@ def main():
     # Executor
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=args.threads)
     futures = []
+    completed = 0  # Initialize here for scope safety
 
     try:
         # Load tasks lazily from file
@@ -132,7 +134,6 @@ def main():
             stop_event.set()
 
         # Monitor Loop
-        completed = 0
         try:
             for _ in concurrent.futures.as_completed(futures):
                 if stop_event.is_set():
@@ -176,6 +177,10 @@ def main():
     print()  # Newline
     duration = time.time() - start_time
     logger.info(f"Finished in {duration:.2f} seconds.")
+    if total_tasks > 0:
+        logger.info(
+            f"Tasks processed: {completed} / Total Dict: {total_tasks} (Skipped: {total_tasks - completed})"
+        )
 
 
 if __name__ == "__main__":

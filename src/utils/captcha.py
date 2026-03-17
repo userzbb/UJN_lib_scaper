@@ -1,5 +1,7 @@
 import base64
+import logging
 import threading
+import time
 
 import ddddocr
 
@@ -7,13 +9,24 @@ from src.config import CAPTCHA_API
 
 # Thread-local storage for OCR engines
 thread_local = threading.local()
+logger = logging.getLogger("HTTP_Cracker")
 
 
 def get_ocr_engine():
     """Get or create a thread-local OCR engine"""
     if not hasattr(thread_local, "engine"):
         # Initialize one engine per thread
-        thread_local.engine = ddddocr.DdddOcr(show_ad=False, old=True)
+        t0 = time.time()
+        try:
+            thread_local.engine = ddddocr.DdddOcr(show_ad=False, old=True)
+            elapsed = time.time() - t0
+            if elapsed > 2.0:
+                logger.warning(
+                    f"⚠️ Slow OCR Init: {elapsed:.2f}s in thread {threading.get_ident()}"
+                )
+        except Exception as e:
+            logger.error(f"❌ OCR Init Failed: {e}")
+            raise e
     return thread_local.engine
 
 

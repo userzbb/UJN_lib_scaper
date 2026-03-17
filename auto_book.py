@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import argparse
+import csv
 import os
 import re
 import time
@@ -7,10 +9,45 @@ import ddddocr
 from playwright.sync_api import sync_playwright
 
 
-def run():
+def run(input_username=None):
     # ================= 配置区域 =================
-    USERNAME = "202331223065"  # 你的学号
-    PASSWORD = "080518"  # 你的密码
+    DEFAULT_USERNAME = "202331223111"  # 默认学号
+
+    # 优先使用命令行传入的学号
+    if input_username:
+        USERNAME = input_username
+    else:
+        USERNAME = DEFAULT_USERNAME
+
+    print(f"正在处理用户: {USERNAME}")
+
+    # 从 CSV 获取密码
+    PASSWORD = None
+    csv_file = "found_passwords.csv"
+    try:
+        # 使用 utf-8-sig 以兼容带 BOM 的 CSV 文件
+        with open(csv_file, mode="r", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                # 获取 username 和 password，去除可能的空格
+                u = row.get("username", "").strip()
+                p = row.get("password", "").strip()
+
+                if u == USERNAME:
+                    PASSWORD = p
+                    break
+
+        if not PASSWORD:
+            print(f"错误: 在 {csv_file} 中未找到用户 {USERNAME} 的密码")
+            return
+    except FileNotFoundError:
+        print(f"错误: 找不到 {csv_file}，请确保文件存在且包含 username,password 表头")
+        return
+    except Exception as e:
+        print(f"读取 CSV 失败: {e}")
+        return
+
+    print(f"已加载用户 {USERNAME} 的密码。")
     # ===========================================
 
     ocr = ddddocr.DdddOcr(show_ad=False, old=True)
@@ -286,4 +323,7 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("username", nargs="?", help="Student ID")
+    args = parser.parse_args()
+    run(args.username)

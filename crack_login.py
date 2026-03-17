@@ -15,7 +15,7 @@ DB_FILE = "crack.db"
 
 def init_db():
     """初始化数据库表结构"""
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DB_FILE, timeout=30.0)
     cursor = conn.cursor()
 
     # 结果表：记录破解成功的密码

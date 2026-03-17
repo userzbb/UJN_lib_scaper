@@ -12,7 +12,7 @@ env/
 .vscode/
 .idea/
 *.swp
-
+*.js
 # Project Runtime & Data
 crack.db
 found_passwords.csv

@@ -65,7 +65,7 @@ def update_progress(conn, username, day_prefix, password):
     INSERT OR REPLACE INTO crack_progress_detail (username, day_prefix, last_tried_password, updated_at)
     VALUES (?, ?, ?, ?)
     """,
-        (username, day_prefix, password, datetime.now()),
+        (username, day_prefix, password, datetime.now().isoformat()),
     )
     conn.commit()
 
@@ -85,7 +85,7 @@ def save_success(conn, username, password):
     INSERT OR REPLACE INTO found_passwords (username, password, found_at)
     VALUES (?, ?, ?)
     """,
-        (username, password, datetime.now()),
+        (username, password, datetime.now().isoformat()),
     )
     conn.commit()
 

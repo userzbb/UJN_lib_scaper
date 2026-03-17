@@ -20,7 +20,8 @@ success_password.txt
 male_last6.txt
 male.txt
 female.txt
-
+*.db
+*.csv
 # Temporary Artifacts (Screenshots & Captchas)
 *.png
 *.jpg

@@ -79,8 +79,21 @@ def get_progress_map(conn, username):
 def save_success(username, password):
     # Save to CSV
     try:
-        with open("found_passwords.csv", "a", encoding="utf-8") as f:
-            f.write(f"{username},{password}\n")
+        # Check if already exists in CSV to avoid duplicates
+        csv_path = "found_passwords.csv"
+        already_exists = False
+        try:
+            with open(csv_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith(f"{username},"):
+                        already_exists = True
+                        break
+        except FileNotFoundError:
+            pass
+
+        if not already_exists:
+            with open(csv_path, "a", encoding="utf-8") as f:
+                f.write(f"{username},{password}\n")
     except Exception as e:
         logger.error(f"CSV Error saving success: {e}")
 
@@ -93,7 +106,7 @@ def save_success(username, password):
             INSERT OR REPLACE INTO found_passwords (username, password, found_at)
             VALUES (?, ?, ?)
             """,
-                (username, password, datetime.now()),
+                (username, password, datetime.now().isoformat()),
             )
             conn.commit()
     except Exception as e:
@@ -126,7 +139,7 @@ def db_updater_loop():
             ):
                 try:
                     data = [
-                        (u, d, p, datetime.now())
+                        (u, d, p, datetime.now().isoformat())
                         for (u, d), p in pending_updates.items()
                     ]
                     cursor.executemany(
@@ -150,7 +163,10 @@ def db_updater_loop():
     # Final commit on exit
     if pending_updates:
         try:
-            data = [(u, d, p, datetime.now()) for (u, d), p in pending_updates.items()]
+            data = [
+                (u, d, p, datetime.now().isoformat())
+                for (u, d), p in pending_updates.items()
+            ]
             cursor.executemany(
                 """
                 INSERT OR REPLACE INTO crack_progress_detail
@@ -229,7 +245,11 @@ def solve_captcha(sess):
 
         # Thread-safe OCR
         with ocr_lock:
-            code = ocr_engine.classification(img_bytes)
+            engine = ocr_engine
+            if engine is None:
+                engine = ddddocr.DdddOcr(show_ad=False, old=True)
+                globals()['ocr_engine'] = engine
+            code = engine.classification(img_bytes)
 
         return captcha_id, code
 
@@ -410,6 +430,7 @@ def main():
     found = cursor.fetchone()
     if found:
         logger.info(f"✅ Password already found in database: {found[0]}")
+        save_success(args.username, found[0])
         conn.close()
         return
 

@@ -1,66 +1,97 @@
 # 项目进度报告 (Project Progress)
 
-**最后更新时间**: 2024-03-18
+**最后更新时间**: 2026-03-24
 
 ## 🟢 已完成功能 (Completed)
 
-### 4. 极速 HTTP 爆破系统 (High Performance)
-- **`crack_login_http.py`**: 纯协议层爆破工具，彻底摆脱浏览器依赖。
-  - **性能**: 支持 64-128+ 线程并发，速度是浏览器版的 50-100 倍。
-  - **核心突破**: 成功逆向 HMAC-SHA256 签名算法与 AES 加密参数。
-  - **功能**:
-    - 自动解决验证码 (ddddocr)。
-    - 自动生成 `x-hmac-request-key` 签名。
-    - 数据库状态持久化 (兼容 `crack.db`)。
-    - 智能重试与错误处理。
+### 1. 极速 HTTP 爆破系统
+- **`crack_login_http.py`**: 纯协议层爆破工具
+  - 支持 64+ 线程并发
+  - HMAC-SHA256 签名 + AES 加密
+  - SQLite 断点续传
 
-### 1. 自动化预约核心
-- **`auto_book.py`**: 基于 Playwright 的全自动座位预约脚本。
-  - 集成 `ddddocr` 自动识别验证码。
-  - 支持自定义阅览室和座位号。
-  - 包含失败重试与错误检测机制。
+### 2. 图书馆预约签到工具
+- **`booking/`**: 纯 Python 实现的核心功能
 
-### 2. 弱密码破解系统 (Playwright 版)
-- **`crack_login.py`**: 单进程密码测试工具。
-  - **策略**: 基于身份证后六位规则 (日+顺序码+校验位)。
-  - **精细控制**: 支持指定性别 (`-g M/F`) 和特定日期 (`-d 08`)。
-  - **持久化**: 使用 SQLite (`crack.db`) 记录进度，支持断点续传（精确到天）。
-  - **容错**: 自动处理验证码错误（重试当前密码）与密码错误（跳过）。
+| 模块 | 文件 | 功能 |
+|------|------|------|
+| 加密 | `crypto.py` | HMAC签名、AES加密 |
+| API | `api.py` | 端点常量 |
+| 客户端 | `client.py` | LibraryClient 类 |
+| 入口 | `main.py` | 命令行工具 |
 
-### 3. 多进程并发管理器
-- **`crack_manager.py`**: 针对浏览器模拟速度慢的解决方案。
-  - **并发调度**: 自动启动多个 `crack_login.py` 子进程（默认使用 CPU 核心数）。
-  - **任务分配**: 按“日期” (01-31) 分配任务，极大提升爆破效率 (4-8倍)。
-  - **状态同步**: 实时监控子进程状态，一旦发现密码立即终止所有任务。
+**已实现功能**：
+- ✅ 登录认证（自动验证码识别）
+- ✅ 查看阅览室列表
+- ✅ 查看我的预约
+- ✅ 取消预约
+- ✅ 签到
 
-## 🟡 逆向工程成果 (Reverse Engineering - Solved)
+## 🟡 逆向工程成果
 
-**状态**: ✅ 已完全攻克
+### JS 逆向
+- **文件位置**: `data/app.js`, `data/vendor.js`
+- **方法**: 浏览器 Network 抓包 + JS 关键词搜索
 
-### 技术细节 (Technical Details)
-通过动态调试与逆向分析，我们完全掌握了登录接口 (`/rest/auth`) 的安全机制：
+### 已破解的密钥
 
-1.  **参数加密 (AES)**:
-    -   算法: AES-128-CBC (Pkcs7 Padding)
-    -   Key: `"server_date_time"`
-    -   IV: `"client_date_time"`
-    -   字段: `username`, `password` (加密后追加 `_encrypt`)
+| 密钥 | 值 | 用途 |
+|------|-----|------|
+| HMAC Secret | `ujnLIB2022tsg` | 请求签名 |
+| AES Key | `server_date_time` | 密码加密 |
+| AES IV | `client_date_time` | 密码加密 |
 
-2.  **请求签名 (HMAC-SHA256)**:
-    -   Header: `x-hmac-request-key`
-    -   Message: `seat::<UUID>::<Timestamp>::GET`
-    -   **Secret Key**: `"ujnLIB2022tsg"`
-        - *获取方式*: 通过 Playwright 注入 JS 读取运行时 `Vue.prototype.$NUMCODE` 得到密文 (`UmrX+lxhFE5neclEsBPing==`)，再使用 AES Key 解密获得明文。
+### API 端点
 
-### 🔴 当前阻塞点 (Blocker)
+```
+POST /rest/auth                           # 登录
+GET  /rest/v2/free/filters               # 阅览室列表
+GET  /rest/v2/room/layoutByDate/{roomId}/{date}  # 座位布局
+GET  /rest/v2/startTimesForSeat/{seatId}/{date}  # 可选开始时间
+GET  /rest/v2/endTimesForSeat/{seatId}/{date}/{start}  # 可选结束时间
+GET  /rest/v2/user/reservations           # 我的预约
+GET  /rest/v2/checkIn/{id}               # 签到
+GET  /rest/v2/cancel/{id}                 # 取消预约
+POST /rest/v2/freeBook                     # 预约座位 ⚠️
+```
 
--   **无** (None)。所有技术障碍已清除。
+## 🔴 当前阻塞点
 
-## 🚀 下一步计划 (Next Steps)
+### 预约 API 需要验证码
 
-1.  **开始爆破**:
-    -   直接运行 **`python3 crack_login_http.py <学号> -g <M/F> -t 64`**。
-    -   这是目前最快、最高效的方案。
+预约功能（`POST /rest/v2/freeBook`）在提交时会触发**点击式汉字验证码**：
 
-2.  **监控**:
-    -   注意观察日志中的网络错误，虽然脚本会自动重试，但如果出现大量连续错误，需考虑降低线程数。
+1. 用户在浏览器选择座位和时间
+2. 点击"立即预约"
+3. 系统弹出验证码图片，要求点击指定汉字（如"块"、"山"等）
+4. 验证通过后预约才真正提交
+
+**影响**：纯 API 调用无法绕过此验证码，必须通过浏览器 UI 交互。
+
+## 📋 待办
+
+- [ ] 研究验证码绕过方案
+- [ ] 评估第三方验证码识别服务（如 2Captcha）
+- [ ] 完善文档
+
+## 📁 项目结构
+
+```
+UJN_lib_scaper/
+├── crack_login_http.py    # HTTP 爆破入口
+├── booking/               # 预约签到模块
+│   ├── main.py          # CLI 入口
+│   ├── client.py         # API 客户端
+│   ├── crypto.py        # 加密工具
+│   ├── api.py           # 端点常量
+│   └── config.py        # 配置
+├── data/                 # 逆向 JS 文件
+│   ├── app.js           # 应用主逻辑
+│   └── vendor.js        # 第三方库
+├── docs/                 # 文档
+│   ├── API.md           # API 文档
+│   ├── BOOKING.md        # 使用指南
+│   └── ...
+├── found_passwords.csv   # 爆破结果
+└── crack.db             # 进度数据库
+```

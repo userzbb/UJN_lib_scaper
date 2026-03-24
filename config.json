@@ -1,0 +1,14 @@
+{
+    "username": "202331223125",
+    "password": "080518",
+    "booking": {
+        "room_id": 19,
+        "room_name": "第三阅览室北区",
+        "seat_id": 9418,
+        "seat_num": "260",
+        "date": "2026-03-26",
+        "start_time": "09:00",
+        "end_time": "12:00"
+    },
+    "auto_checkin": true
+}

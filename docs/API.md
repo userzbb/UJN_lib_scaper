@@ -2,6 +2,28 @@
 
 > 基于 JS 逆向工程获取，2024-03-24
 
+## API 验证结果汇总
+
+| API 端点 | 方法 | 状态 | 说明 |
+|---------|------|------|------|
+| `/rest/auth` | POST | ✅ 成功 | 登录认证 |
+| `/rest/v2/free/filters` | GET | ✅ 成功 | 返回43个阅览室 |
+| `/rest/v2/room/layoutByDate/{roomId}/{date}` | GET | ✅ 成功 | 座位状态有 FREE/FULL 等 |
+| `/rest/v2/startTimesForSeat/{seatId}/{date}` | GET | ✅ 成功 | 时间动态变化（取决于当前时间） |
+| `/rest/v2/endTimesForSeat/{seatId}/{date}/{start}` | GET | ✅ 成功 | 正常返回结束时间列表 |
+| `/rest/v2/user/reservations` | GET | ✅ 成功 | 返回预约列表 |
+| `/rest/v2/checkIn/{id}` | GET | ❌ 不可用 | 返回"请扫描小程序签到二维码" |
+| `/rest/v2/cancel/{id}` | GET | ✅ 成功 | 取消预约正常 |
+| `/rest/v2/freeBook` | POST | ⚠️ 受限 | 需验证码，API无法绕过 |
+
+### 重要发现
+
+1. **签到 API 不可用** - 必须扫码或触屏机操作
+2. **预约需验证码** - 点击式汉字验证码，无法绕过
+3. **时间是动态的** - API只返回当前可预约的时间段
+
+---
+
 ## JS 逆向工程
 
 ### 原始文件

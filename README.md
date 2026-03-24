@@ -9,8 +9,11 @@
 本项目经历了从 **Web 自动化 (Selenium/Playwright)** 到 **逆向工程 (Reverse Engineering)** 再到 **纯协议层高并发爆破 (HTTP Protocol)** 的完整演进过程。
 
 📖 **深度阅读**:
-- [技术演进与逆向工程实录 (Development Journey)](docs/DEV_JOURNEY.md) —— 了解本项目如何一步步突破反爬限制。
-- [爆破逻辑与进度管理机制 (Cracking Logic)](docs/CRACKING_LOGIC.md) —— 了解断点续传与任务调度的实现细节。
+- [API 文档 (API.md)](docs/API.md) —— 完整的 API 端点说明、验证结果、密钥和时间格式
+- [预约使用指南 (BOOKING.md)](docs/BOOKING.md) —— booking 模块使用说明、功能状态、已知问题
+- [项目进度 (PROGRESS.md)](docs/PROGRESS.md) —— 开发进度记录、阻塞点分析
+- [技术演进与逆向工程实录 (DEV_JOURNEY.md)](docs/DEV_JOURNEY.md) —— 了解本项目如何一步步突破反爬限制
+- [爆破逻辑与进度管理机制 (CRACKING_LOGIC.md)](docs/CRACKING_LOGIC.md) —— 了解断点续传与任务调度的实现细节
 
 > **⚠️ 最新更新 (v2.0 Refactored)**:
 > 项目已完成重构，引入了 **智能断点续传**、**自适应流控** 和 **模块化架构**，大幅提升了稳定性和易用性。
@@ -39,6 +42,11 @@
 - 基于 `Playwright` 的全自动座位预约。
 - 支持自定义阅览室、座位号、时间段。
 
+### 5. 📱 预约签到模块 (Booking Module) [新增]
+- 纯 Python 实现的预约辅助工具 (`booking/`)
+- 支持查看阅览室、预约列表、取消预约
+- **⚠️ 注意**: 签到和预约功能受限于验证码
+
 ---
 
 ## 🛠️ 技术架构 (Architecture)
@@ -49,7 +57,7 @@
 UJN_lib_scaper/
 ├── 🚀 入口脚本
 │   ├── crack_login_http.py       # [主程序] 极速 HTTP 爆破入口
-│   ├── auto_book.py              # [辅助] 自动化预约脚本
+│   ├── auto_book.py              # [辅助] Playwright 自动化预约脚本
 │
 ├── 📦 核心源码 (src/)
 │   ├── main.py                   # 调度主逻辑 (生成字典 -> 过滤任务 -> 线程池)
@@ -62,14 +70,27 @@ UJN_lib_scaper/
 │       ├── crypto.py             # 加密算法 (AES, HMAC)
 │       └── captcha.py            # 验证码识别 (ddddocr)
 │
+├── 📱 预约签到模块 (booking/)      # [新增] 纯 Python 预约辅助
+│   ├── main.py                   # CLI 入口
+│   ├── client.py                 # API 客户端
+│   ├── crypto.py                 # HMAC/AES 加密
+│   ├── api.py                    # 端点常量
+│   └── config.json               # 默认配置
+│
 ├── 📄 文档 (Docs)
 │   └── docs/
+│       ├── API.md                # [新增] API 文档
+│       ├── BOOKING.md            # [新增] 预约使用指南
+│       ├── PROGRESS.md           # [新增] 项目进度
 │       ├── DEV_JOURNEY.md        # 技术演进与逆向工程记录
 │       └── CRACKING_LOGIC.md     # 爆破逻辑与进度管理说明
 │
-└── 📊 数据文件
-    ├── crack.db                  # 进度数据库
-    └── found_passwords.csv       # 成功结果导出
+├── 📊 数据文件
+│   ├── data/                     # [新增] 逆向 JS 文件
+│   │   ├── app.js               # 应用主逻辑
+│   │   └── vendor.js            # 第三方库
+│   ├── crack.db                  # 进度数据库
+│   └── found_passwords.csv       # 成功结果导出
 ```
 
 ---
@@ -196,6 +217,53 @@ Generating full candidate list: passwords_xxxx.txt ...
 **配置说明**:
 如果需要修改默认阅览室 (`target_room`) 或座位号 (`seat_num`)，请直接编辑 `auto_book.py` 底部相关变量。
 
+### 3. 预约签到工具 (booking/main.py) [新增]
+
+纯 Python 实现的预约辅助模块，不依赖浏览器。
+
+**基本语法**:
+```bash
+uv run python booking/main.py <学号> [选项]
+```
+
+**参数详解**:
+
+| 参数 | 说明 | 示例 |
+| :--- | :--- | :--- |
+| `--rooms` | 查看阅览室列表 | `--rooms` |
+| `--list` | 查看我的预约 | `--list` |
+| `--cancel <ID>` | 取消预约 | `--cancel 19971660` |
+| `--checkin <ID>` | 签到 (⚠️ 不可用) | `--checkin 19971660` |
+| `--room <ID>` | 阅览室ID | `--room 17` |
+| `--seat <座位号>` | 座位号 | `--seat 001` |
+| `--date` | 日期 (today/tomorrow) | `--date tomorrow` |
+| `--start HH:MM` | 开始时间 | `--start 09:00` |
+| `--end HH:MM` | 结束时间 | `--end 12:00` |
+| `--auto` | 预约成功后自动签到 | `--auto` |
+
+**使用示例**:
+
+```bash
+# 场景1: 查看阅览室
+uv run python booking/main.py 202331223125 --rooms
+
+# 场景2: 查看我的预约
+uv run python booking/main.py 202331223125 --list
+
+# 场景3: 取消预约
+uv run python booking/main.py 202331223125 --cancel 19971660
+
+# 场景4: 预约座位 (默认明日)
+uv run python booking/main.py 202331223125 --room 17 --seat 001
+
+# 场景5: 预约今日指定时间段
+uv run python booking/main.py 202331223125 --room 17 --seat 001 --date today --start 09:00 --end 12:00
+```
+
+**⚠️ 重要限制**:
+- 签到功能不可用 (API返回"请扫描小程序签到二维码")
+- 预约功能需验证码 (点击式汉字验证码，无法绕过)
+
 ---
 
 ## 🔍 进阶分析 (Advanced)
@@ -209,11 +277,13 @@ Generating full candidate list: passwords_xxxx.txt ...
 
 ### 核心密钥一览 (Discovered Secrets)
 
-| 密钥类型 | 变量名/用途 | 值 (Value) | 备注 |
-| :--- | :--- | :--- | :--- |
-| **HMAC Secret** | `$NUMCODE` | **`ujnLIB2022tsg`** | 用于请求签名 (核心) |
-| **AES Key** | `server_date_time` | `server_date_time` | 密码加密 Key |
-| **AES IV** | `client_date_time` | `client_date_time` | 密码加密 IV |
+详见 [API 文档 - 密钥](docs/API.md#密钥)
+
+| 密钥类型 | 值 | 备注 |
+| :--- | :--- | :--- |
+| **HMAC Secret** | `ujnLIB2022tsg` | 用于请求签名 |
+| **AES Key** | `server_date_time` | 密码加密 |
+| **AES IV** | `client_date_time` | 密码加密 |
 
 ---
 
@@ -222,6 +292,7 @@ Generating full candidate list: passwords_xxxx.txt ...
 1.  **仅供学习研究**: 本项目旨在研究网络安全、逆向工程与自动化技术。请勿用于非法用途。
 2.  **遵守规定**: 请遵守济南大学网络使用规范，不要对服务器造成过大压力。
 3.  **账号安全**: 爆破测试仅限用户授权的账号，或用于找回自己遗忘的密码。
+4.  **预约限制**: 图书馆系统有签到和预约验证码机制，请遵守相关规定。
 
 ---
 
